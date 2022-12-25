@@ -35,13 +35,32 @@ func createEC2(ctx context.Context, region string) (string, error) {
 
 	ec2Client := ec2.NewFromConfig(cfg)
 
-	_, err = ec2Client.CreateKeyPair(ctx, &ec2.CreateKeyPairInput{
-		KeyName: aws.String("go-aws-demo-saku-key1"),
+	keyPairs, err := ec2Client.DescribeKeyPairs(ctx, &ec2.DescribeKeyPairsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("key-name"),
+				Values: []string{"go-aws-demo-saku-key1"},
+			},
+		},
+		// KeyNames: []string{"go-aws-demo-saku-key1"},
 	})
 	if err != nil {
-		return "", fmt.Errorf("unable to create key pair, %s", err)
+		return "", fmt.Errorf("DescribeKeyPairs error, %s", err)
 	}
 
+	if keyPairs == nil || len(keyPairs.KeyPairs) == 0 {
+		keyPair, err := ec2Client.CreateKeyPair(ctx, &ec2.CreateKeyPairInput{
+			KeyName: aws.String("go-aws-demo-saku-key1"),
+		})
+		if err != nil {
+			return "", fmt.Errorf("unable to create key pair, %s", err)
+		}
+		// keyPair.KeyMaterial
+		err = os.WriteFile("go-aws-demo-saku-key1.pem", []byte(*keyPair.KeyMaterial), 0600)
+		if err != nil {
+			return "", fmt.Errorf("WriteFile Error: %s", err)
+		}
+	}
 	imageOutput, err := ec2Client.DescribeImages(ctx, &ec2.DescribeImagesInput{
 		Filters: []types.Filter{
 			{
